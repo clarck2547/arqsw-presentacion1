@@ -5,6 +5,7 @@ import (
 	"Taller2/Product/internal/command/domain/events"
 	"context"
 	_ "errors"
+
 	"github.com/segmentio/kafka-go"
 )
 

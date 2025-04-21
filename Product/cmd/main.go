@@ -12,12 +12,16 @@ import (
 	product "Taller2/Product/gen/go/api" // Ajusta esta importación según tu estructura de carpetas
 	"Taller2/Product/internal/api"
 	"Taller2/Product/internal/command"
+	"Taller2/Product/internal/command/domain/entities"
+	"Taller2/Product/internal/command/domain/events"
 	kafkaComm "Taller2/Product/internal/command/infrastructure/kafka"
 	"Taller2/Product/internal/command/infrastructure/persistence"
 	"Taller2/Product/internal/query"
 	kafkaQue "Taller2/Product/internal/query/infrastructure/kafka"
 	persistenceQuery "Taller2/Product/internal/query/infrastructure/persistence"
 	config "Taller2/Product/internal/shared"
+
+	"github.com/google/uuid"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -52,24 +56,62 @@ func main() {
 	log.Printf("Config loaded: %+v", cfg)
 
 	// Inicializar Command y Query (como ya lo tienes configurado)
-	commandRepo, err := persistence.NewPostgresProductRepository(cfg.PostgreSQL.CommandDSN)
+	commandRepo, err := persistence.NewSQLiteProductRepository(cfg.SQLite.CommandDSN)
 	if err != nil {
 		log.Fatal("Failed to init Command DB:", err)
 	}
 
+	// Crear un producto de ejemplo
+	productID := uuid.New()
+	exampleProduct := &entities.Product{
+		ID:          productID, // Asume un ID único
+		Name:        "Producto Ejemplo",
+		Description: "Este es un producto de ejemplo",
+		Price:       100.0,
+		Stock:       50,
+	}
+
+	// Agregar el producto a la base de datos de Command
+	err = commandRepo.Save(context.Background(), exampleProduct)
+	if err != nil {
+		log.Fatalf("Error agregando producto a la base de datos de Command: %v", err)
+	}
+	log.Println("Producto de ejemplo agregado exitosamente en Command DB")
+
+	// Inicializar productor Kafka
 	kafkaProducer := kafkaComm.NewProducer(cfg.Kafka.Brokers)
+
+	// Crear el evento de producto creado
+	event := events.NewProductCreatedEvent(exampleProduct)
+
+	// Publicar el evento en Kafka
+	err = kafkaProducer.PublishEvent(context.Background(), event)
+	if err != nil {
+		log.Printf("Error publicando evento a Kafka: %v", err)
+	} else {
+		log.Printf("Evento 'product_created' enviado a Kafka para el producto: %+v", event)
+	}
+
+	// Crear la aplicación de Command
 	commandApp := command.NewApplication(commandRepo, kafkaProducer)
 
-	queryRepo, err := persistenceQuery.NewPostgresProductReadRepository(cfg.PostgreSQL.QueryDSN)
+	// Inicializar repositorio de Query
+	queryRepo, err := persistenceQuery.NewSQLiteProductReadRepository(cfg.SQLite.QueryDSN)
 	if err != nil {
 		log.Fatal("Failed to init Query DB:", err)
 	}
 
+	// Inicializar consumidor Kafka para Query
 	kafkaConsumer := kafkaQue.NewConsumer(cfg.Kafka.Brokers, "product_events", queryRepo)
+
+	// Iniciar consumidor de Kafka para Query (debe estar escuchando para los eventos)
 	go func() {
-		kafkaConsumer.Start(context.Background())
+		if err := kafkaConsumer.Start(context.Background()); err != nil {
+			log.Fatalf("Error al iniciar consumidor de Kafka para Query: %v", err)
+		}
 	}()
 
+	// Crear la aplicación de Query
 	queryApp := query.NewApplication(queryRepo)
 
 	// Iniciar servidor GRPC

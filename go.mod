@@ -11,12 +11,13 @@ require (
 	google.golang.org/protobuf v1.36.6
 )
 
-require google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb // indirect
+require google.golang.org/genproto/googleapis/api v0.0.0-20250303144028-a0af3efb3deb
+
+require github.com/mattn/go-sqlite3 v1.14.28 // indirect
 
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3
 	github.com/klauspost/compress v1.15.9 // indirect
-	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	golang.org/x/net v0.35.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect

@@ -6,7 +6,7 @@ import (
 )
 
 type Config struct {
-	PostgreSQL struct {
+	SQLite struct {
 		CommandDSN string
 		QueryDSN   string
 	}
@@ -23,7 +23,7 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		PostgreSQL: struct {
+		SQLite: struct {
 			CommandDSN string
 			QueryDSN   string
 		}{
